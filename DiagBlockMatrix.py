@@ -1,6 +1,7 @@
 import numpy as np
 import time
 
+
 class DiagBlockMatrix:
     def __init__(self, n_blocks: int, block_size: int, data_1d: np.ndarray):
         self.n = n_blocks
@@ -61,62 +62,23 @@ class DiagBlockMatrix:
         return DiagBlockMatrix(self.n, self.d, self.data - other.data)
 
     def __mul__(self, other):
-        """Multiply two diagonal block matrices using block-wise vectorized dot product"""
         if self.n != other.n or self.d != other.d:
-            raise ValueError("Both matrices must have the same dimensions and block size to multiply.")
-        result_data = np.zeros(self.n * self.n * self.d, dtype=float)
-        # Precompute all diagonals for A and B
-        start = time.time()
-        diags_a = np.ascontiguousarray([[self.get_block_diagonal(i, k) for k in range(self.n)] for i in range(self.n)])
-        diags_b = np.ascontiguousarray([[other.get_block_diagonal(k, j) for j in range(self.n)] for k in range(self.n)])
-        end = time.time()
-        print(f"Time to get diag blocks: {end - start} seconds")
-        # einsum: 'ikd,kjd->ijd' -> sum over k, multiply element-wise along d
-        start = time.time()
-        result_3d = np.einsum('ikd,kjd->ijd', diags_a, diags_b)
-        end = time.time()
-        print(f"Time to get calculate sums over all blocks: {end - start} seconds")
-        # Flatten to 1D array in row-major block order
-        result_data = result_3d.reshape(-1)
-        return DiagBlockMatrix(self.n, self.d, result_data)
+            raise ValueError("Both matrices must have the same dimensions and block size.")
 
+        n, d = self.n, self.d
+        # Reshape 1D data into 3D "view" maintaining contiguous array: (block_row, block_col, diagonal_index)
+        diags_a = self.data.reshape(n, n, d)
+        diags_b = other.data.reshape(n, n, d)
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    def random_block_diag_matrix(n_blocks, block_size):
-        matrix = np.zeros((n_blocks * block_size, n_blocks * block_size))
-        for i in range(n_blocks):
-            for j in range(n_blocks):
-                block = np.random.rand(block_size, block_size)
-                # Keep only diagonal
-                block = np.diag(np.diagonal(block))
-                matrix[i * block_size:(i + 1) * block_size, j * block_size:(j + 1) * block_size] = block
-        return matrix
+        result_1d = np.zeros_like(self.data)
+        # Perform block-wise multiplication
+        for i in range(n):
+            for j in range(n):
+                block_diag = np.zeros(d)
+                for k in range(n):
+                    # Multiply diagonals element-wise for each block, then sum over k
+                    block_diag += diags_a[i, k, :] * diags_b[k, j, :]
+                start_idx = ((i * n) + j) * d
+                result_1d[start_idx:start_idx + d] = block_diag
 
-    n_blocks = 500
-    block_size = 5
-    n_total = n_blocks * block_size
-
-    # 3. Create two random block-diagonal matrices
-    A_np = random_block_diag_matrix(n_blocks, block_size)
-    B_np = random_block_diag_matrix(n_blocks, block_size)
-
-    # 2. Multiply using full naive numpy arrays
-    start = time.time()
-    C_np = A_np @ B_np
-    end = time.time()
-    print(f"Full NumPy multiplication took {end - start:.6f} seconds")
-
-    # 3. Convert to DiagBlockMatrix and multiply
-    A_block = DiagBlockMatrix.from_2d_matrix(A_np, block_size)
-    B_block = DiagBlockMatrix.from_2d_matrix(B_np, block_size)
-
-    start = time.time()
-    C_block = A_block * B_block
-    end = time.time()
-    print(f"DiagBlockMatrix multiplication took {end - start:.6f} seconds")
-
-    # 4. Compare results
-    C_block_np = C_block.to_2d_matrix()
-    error = np.max(np.abs(C_np - C_block_np))
-    print(f"Max difference between NumPy and BlockDiagMatrix result: {error:e}")
+        return DiagBlockMatrix(n, d, result_1d)
