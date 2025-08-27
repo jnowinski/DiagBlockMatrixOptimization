@@ -70,6 +70,15 @@ class DiagBlockMatrix:
 
         return DiagBlockMatrix(n, d, result)
 
+    def transpose(self):
+        """
+        Return the transpose matrix of the diagonal block matrix.
+        Moves each block from position (i,j) to (j,i)
+        """
+        result = diag_block_transpose(self.data, self.n, self.d)
+        return DiagBlockMatrix(self.n, self.d, result)
+
+
 
 @njit(parallel=True, fastmath=True)
 def diag_block_multiply(a_data, b_data, n, d):
@@ -86,3 +95,20 @@ def diag_block_multiply(a_data, b_data, n, d):
         start_result = ((i * n) + j) * d
         product[start_result:start_result+d] = block
     return product
+
+
+@njit(parallel=True, fastmath=True)
+def diag_block_transpose(data, n, d):
+    """
+    Return the transpose data of the diagonal data input.
+    Moves each block from position (i,j) to (j,i)
+    """
+    transpose = np.zeros_like(data)
+    for idx in prange(n * n):
+        i = idx // n
+        j = idx % n
+        start = ((i * n) + j) * d
+        block = data[start: start + d]
+        start_transpose = ((j * n) + i) * d
+        transpose[start_transpose:start_transpose + d] = block
+    return transpose
