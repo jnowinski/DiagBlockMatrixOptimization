@@ -34,5 +34,7 @@ def matrix_fixture(request):
         return random_block_diag_matrix(30, 6, False), 6, param
     elif param == "huge_matrix":
         return random_block_diag_matrix(100, 10, False), 10, param
+    elif param == "hugest_matrix":
+        return random_block_diag_matrix(500, 20, False), 20, param
     else:
         raise ValueError(f"Unknown fixture name: {param}")

@@ -1,9 +1,9 @@
 import numpy as np
-import time
+from numba import njit, prange
 
 
 class DiagBlockMatrix:
-    def __init__(self, n_blocks: int, block_size: int, data_1d: np.ndarray):
+    def __init__(self, n_blocks: int, block_size: int, data_1d: np.ascontiguousarray):
         self.n = n_blocks
         self.d = block_size
         self.data = data_1d
@@ -22,12 +22,12 @@ class DiagBlockMatrix:
             for j in range(n_blocks):
                 block = matrix[i * block_size:(i + 1) * block_size, j * block_size:(j + 1) * block_size]
                 data_1d.extend(np.diagonal(block))
-        return cls(n_blocks, block_size, np.array(data_1d, dtype=float))
+        return cls(n_blocks, block_size, np.ascontiguousarray(data_1d, dtype=np.float64))
 
     def to_2d_matrix(self):
         """Return a numpy array of shape (n*d, n*d) from the flattened diagonals"""
         n_total = self.n * self.d
-        full_matrix = np.zeros((n_total, n_total), dtype=float)
+        full_matrix = np.zeros((n_total, n_total), dtype=np.float64)
 
         for i in range(self.n):
             for j in range(self.n):
@@ -66,19 +66,23 @@ class DiagBlockMatrix:
             raise ValueError("Both matrices must have the same dimensions and block size.")
 
         n, d = self.n, self.d
-        # Reshape 1D data into 3D "view" maintaining contiguous array: (block_row, block_col, diagonal_index)
-        diags_a = self.data.reshape(n, n, d)
-        diags_b = other.data.reshape(n, n, d)
+        result = diag_block_multiply(self.data, other.data, n, d)
 
-        result_1d = np.zeros_like(self.data)
-        # Perform block-wise multiplication
-        for i in range(n):
-            for j in range(n):
-                block_diag = np.zeros(d)
-                for k in range(n):
-                    # Multiply diagonals element-wise for each block, then sum over k
-                    block_diag += diags_a[i, k, :] * diags_b[k, j, :]
-                start_idx = ((i * n) + j) * d
-                result_1d[start_idx:start_idx + d] = block_diag
+        return DiagBlockMatrix(n, d, result)
 
-        return DiagBlockMatrix(n, d, result_1d)
+
+@njit(parallel=True, fastmath=True)
+def diag_block_multiply(a_data, b_data, n, d):
+    product = np.zeros(n * n * d, dtype=np.float64)
+
+    for idx in prange(n * n): # Parallelize block indexing
+        i = idx // n
+        j = idx % n
+        block = np.zeros(d, dtype=np.float64)
+        for k in range(n):
+            start_a = ((i * n) + k) * d
+            start_b = ((k * n) + j) * d
+            block += a_data[start_a:start_a+d] * b_data[start_b:start_b+d]
+        start_result = ((i * n) + j) * d
+        product[start_result:start_result+d] = block
+    return product

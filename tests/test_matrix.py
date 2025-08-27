@@ -6,7 +6,7 @@ from DiagBlockMatrix import DiagBlockMatrix
 
 @pytest.mark.parametrize("matrix_fixture",
                          ["mini_identity", "mini_matrix", "small_identity", "small_matrix",
-                          "medium_identity", "medium_matrix", "large_identity", "large_matrix", "huge_matrix"],
+                          "medium_identity", "medium_matrix", "large_identity", "large_matrix", "huge_matrix", "hugest_matrix"],
                          indirect=True)
 def test_matrix_multiply(matrix_fixture, request):
     a_np, a_blocksize, fixture_name = matrix_fixture
