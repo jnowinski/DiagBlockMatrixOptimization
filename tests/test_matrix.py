@@ -6,12 +6,13 @@ from DiagBlockMatrix import DiagBlockMatrix
 
 @pytest.mark.parametrize("matrix_fixture",
                          ["mini_identity", "mini_matrix", "small_identity", "small_matrix",
-                          "medium_identity", "medium_matrix", "large_identity", "large_matrix", "huge_matrix", "hugest_matrix"],
+                          "medium_identity", "medium_matrix", "large_identity", "large_matrix",
+                          "huge_matrix", "hugest_matrix"],
                          indirect=True)
 def test_matrix_multiply(matrix_fixture, request):
     a_np, a_blocksize, fixture_name = matrix_fixture
     b_np, b_blocksize, _ = matrix_fixture
-    print(f"Testing {fixture_name}: n = {a_np.shape[0]}, d = {a_blocksize}")
+    print(f"Testing {fixture_name}: n = {a_np.shape[0] / a_blocksize}, d = {a_blocksize}")
 
     # Multiply using full naive NumPy arrays
     start = time.time()

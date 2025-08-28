@@ -29,12 +29,12 @@ def matrix_fixture(request):
     elif param == "medium_matrix":
         return random_block_diag_matrix(5, 5, False), 5, param
     elif param == "large_identity":
-        return random_block_diag_matrix(30, 6, True), 6, param
+        return random_block_diag_matrix(30, 7, True), 7, param
     elif param == "large_matrix":
-        return random_block_diag_matrix(30, 6, False), 6, param
+        return random_block_diag_matrix(30, 7, False), 7, param
     elif param == "huge_matrix":
         return random_block_diag_matrix(100, 10, False), 10, param
     elif param == "hugest_matrix":
-        return random_block_diag_matrix(500, 20, False), 20, param
+        return random_block_diag_matrix(500, 30, False), 30, param
     else:
         raise ValueError(f"Unknown fixture name: {param}")

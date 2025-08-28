@@ -62,21 +62,29 @@ class DiagBlockMatrix:
         return DiagBlockMatrix(self.n, self.d, self.data - other.data)
 
     def __mul__(self, other):
-        if self.n != other.n or self.d != other.d:
-            raise ValueError("Both matrices must have the same dimensions and block size.")
+        """Handles scalar and matrix multiplication"""
+        if isinstance(other, DiagBlockMatrix):
+            if self.n != other.n or self.d != other.d:
+                raise ValueError("Both matrices must have the same dimensions and block size.")
+            n, d = self.n, self.d
+            result = diag_block_multiply(self.data, other.data, n, d)
+            return DiagBlockMatrix(n, d, result)
+        if np.isscalar(other):
+            return DiagBlockMatrix(self.n, self.d, self.data * other)
+        return NotImplemented
 
-        n, d = self.n, self.d
-        result = diag_block_multiply(self.data, other.data, n, d)
-
-        return DiagBlockMatrix(n, d, result)
+    def __rmul__(self, other):
+        """Delegates Scalar × Matrix to __mul__"""
+        return self.__mul__(other)
 
     def transpose(self):
         """
         Return the transpose matrix of the diagonal block matrix.
-        Moves each block from position (i,j) to (j,i)
+        Changes stride order so each (i,j) block is in the (j,i)th index.
         """
-        result = diag_block_transpose(self.data, self.n, self.d)
-        return DiagBlockMatrix(self.n, self.d, result)
+        blocks = self.data.reshape(self.n, self.n, self.d)
+        transposed = blocks.transpose(1, 0, 2)  # Switch i and j indices
+        return DiagBlockMatrix(self.n, self.d, transposed.ravel())
 
 
 
@@ -96,19 +104,3 @@ def diag_block_multiply(a_data, b_data, n, d):
         product[start_result:start_result+d] = block
     return product
 
-
-@njit(parallel=True, fastmath=True)
-def diag_block_transpose(data, n, d):
-    """
-    Return the transpose data of the diagonal data input.
-    Moves each block from position (i,j) to (j,i)
-    """
-    transpose = np.zeros_like(data)
-    for idx in prange(n * n):
-        i = idx // n
-        j = idx % n
-        start = ((i * n) + j) * d
-        block = data[start: start + d]
-        start_transpose = ((j * n) + i) * d
-        transpose[start_transpose:start_transpose + d] = block
-    return transpose
